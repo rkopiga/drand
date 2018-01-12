@@ -166,7 +166,7 @@ func (b *Beacon) processBeaconSignature(pub *Public, sig *BeaconReply) {
 	}
 
 	// 2-
-	if b.store.SignatureExists(sig.Request.Timestamp) {
+	if b.store.BeaconExists(sig.Request.Timestamp) {
 		slog.Infof("blsBeacon already reconstructed signature %d", sig.Request.Timestamp)
 		return
 	}
@@ -199,7 +199,7 @@ func (b *Beacon) processBeaconSignature(pub *Public, sig *BeaconReply) {
 
 	delete(b.pendingSigs, d)
 
-	if b.store.SaveSignature(NewBeaconSignature(sig.Request, fullSig)); err != nil {
+	if b.store.SaveBeacon(NewBeaconSignature(sig.Request, fullSig)); err != nil {
 		slog.Infof("%s error saving signature: %s", b.String(), err)
 		return
 	}

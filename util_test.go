@@ -136,7 +136,7 @@ func (t *TestStore) LoadDistPublic() (*DistPublic, error) {
 	return t.DistPublic, nil
 }
 
-func (t *TestStore) SaveSignature(b *BeaconSignature) error {
+func (t *TestStore) SaveBeacon(b *BeaconSignature) error {
 	t.Lock()
 	defer t.Unlock()
 	t.Signatures[b.Request.Timestamp] = b
@@ -153,7 +153,7 @@ func (t *TestStore) LoadSignature(path string) (*BeaconSignature, error) {
 	return nil, errors.New("not implemented now")
 }
 
-func (t *TestStore) SignatureExists(ts int64) bool {
+func (t *TestStore) BeaconExists(ts int64) bool {
 	t.Lock()
 	defer t.Unlock()
 	_, ok := t.Signatures[ts]

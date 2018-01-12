@@ -271,7 +271,7 @@ func verifyCmd(c *cli.Context) error {
 
 	var invalid bool
 	for i, f := range c.Args() {
-		bs, err := fs.LoadSignature(f)
+		bs, err := fs.LoadBeacon(f)
 		if err != nil {
 			slog.Fatal("Signature", i, " could not be loaded: ", err)
 		}

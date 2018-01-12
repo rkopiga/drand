@@ -17,6 +17,13 @@ import (
 // material to be used by drand. For the moment, only a file based store is
 // implemented.
 type Store interface {
+	KeyStore
+	BeaconStore
+}
+
+// KeyStore is an interface that allows to retrieve the different key materials
+// needed during the life of a drand node.
+type KeyStore interface {
 	SaveKey(p *Private) error
 	LoadKey() (*Private, error)
 	LoadGroup() (*Group, error)
@@ -24,8 +31,14 @@ type Store interface {
 	LoadShare() (*Share, error)
 	SaveDistPublic(d *DistPublic) error
 	LoadDistPublic() (*DistPublic, error)
-	SaveSignature(b *BeaconSignature) error
-	SignatureExists(timestamp int64) bool
+}
+
+// BeaconStore is an interface that allows to load or save a beacon and tests if
+// a timestamp designated beacon exists or not.
+type BeaconStore interface {
+	SaveBeacon(b *BeaconSignature) error
+	LoadBeacon() (*BeaconSignature, error)
+	BeaconExists(timestamp int64) bool
 }
 
 var ErrStoreFile = errors.New("store file issues")
@@ -142,17 +155,17 @@ func (f *FileStore) LoadDistPublic() (*DistPublic, error) {
 	return d, f.Load(f.DistKeyFile, d)
 }
 
-func (f *FileStore) SaveSignature(b *BeaconSignature) error {
+func (f *FileStore) SaveBeacon(b *BeaconSignature) error {
 	os.MkdirAll(f.SigFolder, 0777)
 	return f.Save(f.beaconFilename(b.Request.Timestamp), b, false)
 }
 
-func (f *FileStore) LoadSignature(path string) (*BeaconSignature, error) {
+func (f *FileStore) LoadBeacon(path string) (*BeaconSignature, error) {
 	sig := new(BeaconSignature)
 	return sig, f.Load(path, sig)
 }
 
-func (f *FileStore) SignatureExists(ts int64) bool {
+func (f *FileStore) BeaconExists(ts int64) bool {
 	ok, _ := exists(f.beaconFilename(ts))
 	return ok
 }
