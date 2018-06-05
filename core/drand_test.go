@@ -14,6 +14,8 @@ import (
 	"github.com/dedis/kyber/sign/bls"
 	"github.com/nikkolasg/slog"
 	"github.com/stretchr/testify/require"
+	//"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestDrandDKG(t *testing.T) {
@@ -47,8 +49,39 @@ func TestDrandDKG(t *testing.T) {
 	public, err := root.store.LoadDistPublic()
 	require.Nil(t, err)
 	require.NotNil(t, public)
-	_, err = root.store.LoadShare()
+	pri, err := root.store.LoadShare()
 	require.Nil(t, err)
+
+
+	rdkg := make([]*Drand,n)
+	for i := 0; i < n; i++{
+		rdkg[i] , _ = drands[i].RefreshDKG()
+		}
+
+
+	var wgd sync.WaitGroup
+	wgd.Add(n)
+	for _, drand := range rdkg{
+		go func(d *Drand) {
+			err := d.RenewalDKG()
+			fmt.Print("REFRESHING DONE")
+			require.Nil(t,err)
+			wgd.Done()
+		}(drand)
+	}
+
+	r := rdkg[0]
+	erir := r.StartRefresh()
+	require.Nil(t,erir)
+	wgd.Wait()
+	//erir := r.StartRefresh()
+	//require.Nil(t,erir)
+	//wgd.Wait()
+	pub, _ := r.store.LoadDistPublic()
+	piv, _ := r.store.LoadShare()
+
+	assert.Equal(t,public,pub)
+	assert.Equal(t,piv,pri)
 
 	receivedChan := make(chan int, nbBeacons*n)
 	//expected := nbBeacons * n
@@ -107,6 +140,35 @@ func TestDrandDKG(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 }
+/*
+func TestDrand_RefreshDKGDKG(t *testing.T) {
+	n := 2
+	period := 700 * time.Millisecond
+	dkgs := BatchNewDrand(n,WithBeaconPeriod(period))
+	defer CloseAllDrands(dkgs)
+	var wg sync.WaitGroup
+	wg.Add(n - 1)
+	for _, drand := range dkgs[1:] {
+		go func(d *Drand) {
+			err := d.WaitDKG()
+			require.Nil(t, err)
+			wg.Done()
+		}(drand)
+	}
+
+	root := dkgs[0]
+	err := root.StartDKG()
+	require.Nil(t, err)
+	wg.Wait()
+
+	// check if share + dist public files are saved
+	public, err := root.store.LoadDistPublic()
+	require.Nil(t, err)
+	require.NotNil(t, public)
+	_, err = root.store.LoadShare()
+	require.Nil(t, err)
+}
+*/
 
 func BatchNewDrand(n int, opts ...ConfigOption) []*Drand {
 	privs, group := test.BatchIdentities(n)

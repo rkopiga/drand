@@ -13,8 +13,18 @@ import "crypto/share/vss/vss.proto";
 // participants and to create new publicly verifiable randomness.
 service Dkg {
    rpc Setup(DKGPacket) returns (DKGResponse);
+   rpc RenewDistKeyGen(RefreshDKG) returns (RefreshResponse);
 
 }
+
+//So that it makes a background compatibility when code are changed.
+message RefreshDKG {
+    DKGPacket dkgPacket = 1;
+}
+message RefreshResponse{
+}
+
+
 
 // DKGPacket is used by the nodes to run the dkg protocol before being able to
 // generate randomness beacons.
@@ -22,6 +32,7 @@ message DKGPacket {
     Deal deal = 1;
     Response response = 2;
     Justification justification = 3;
+
 }
 
 message DKGResponse {

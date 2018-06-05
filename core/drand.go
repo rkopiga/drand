@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"sync"
-
 	"github.com/dedis/drand/beacon"
 	"github.com/dedis/drand/dkg"
 	"github.com/dedis/drand/fs"
@@ -14,9 +13,10 @@ import (
 	"github.com/dedis/drand/net"
 	"github.com/dedis/drand/protobuf/crypto"
 	dkg_proto "github.com/dedis/drand/protobuf/dkg"
+	"github.com/nikkolasg/slog"
+	kyberDkg "github.com/dedis/kyber/share/dkg/pedersen"
 	"github.com/dedis/drand/protobuf/drand"
 	"github.com/dedis/kyber"
-	"github.com/nikkolasg/slog"
 )
 
 // Drand is the main logic of the program. It reads the keys / group file, it
@@ -113,6 +113,11 @@ func (d *Drand) StartDKG() error {
 	return d.WaitDKG()
 }
 
+func (d *Drand) StartRefresh() error {
+	d.dkg.Start()
+	return d.RenewalDKG()
+}
+
 // WaitDKG waits messages from the DKG protocol started by a leader or some
 // nodes, and then wait until completion.
 func (d *Drand) WaitDKG() error {
@@ -131,7 +136,54 @@ func (d *Drand) WaitDKG() error {
 	// XXX See if needed to change to qualified group
 	d.store.SaveGroup(d.group)
 	d.initBeacon()
+
 	return nil
+}
+
+func (d *Drand) RenewalDKG() error{
+	var err error
+	distShare, err := d.store.LoadShare()
+	select {
+	case share := <-d.dkg.WaitShare():
+		sh := *distShare; //Pointeur
+		dkgShare := kyberDkg.DistKeyShare(sh);
+		dkgShare2 := kyberDkg.DistKeyShare(share);
+		renewedShare, err := dkgShare.Renew(key.G2,&dkgShare2)
+		if err != nil{
+			return errors.New("couldn't add shares together")
+		}
+		if renewedShare != &dkgShare2{
+			fmt.Print("IT HAS RENEWED")
+		}
+		obj := *renewedShare
+		s := key.Share(obj)
+		d.share = &s
+
+	case err = <- d.dkg.WaitError():
+	}
+	if err != nil{
+		return err
+	}
+	d.store.SaveShare(d.share)
+	d.store.SaveDistPublic(d.share.Public())
+	d.store.SaveGroup(d.group)
+	d.initBeacon()
+	return nil
+}
+
+//
+func (d *Drand) RefreshDKG() (*Drand,error){
+	//Take an already existing Drand.
+	if !d.isDKGDone(){
+		return nil, errors.New("can't refresh: dkg setup not done yet.")
+	}
+	dkgConf := &dkg.Config{
+		Suite:   key.G2.(dkg.Suite),
+		Group:   d.group,
+		Timeout: d.opts.dkgTimeout,
+	}
+	d.dkg , _ = dkg.NewHandlerWithoutSecret(d.priv,dkgConf,d.dkgNetwork())
+	return d, nil
 }
 
 var DefaultSeed = []byte("Truth is like the sun. You can shut it out for a time, but it ain't goin' away.")
@@ -152,7 +204,7 @@ func (d *Drand) Public(context.Context, *drand.PublicRandRequest) (*drand.Public
 		return nil, fmt.Errorf("can't retrieve beacon: %s", err)
 	}
 	return &drand.PublicRandResponse{
-		PreviousRand: beacon.PreviousRand,
+		Previous:     beacon.PreviousRand,
 		Round:        beacon.Round,
 		Randomness:   beacon.Randomness,
 	}, nil
@@ -189,7 +241,7 @@ func (d *Drand) Private(c context.Context, priv *drand.PrivateRandRequest) (*dra
 	}
 
 	obj, err := Encrypt(key.G2, DefaultHash, clientKey, randomness[:])
-	return &drand.PrivateRandResponse{obj}, err
+	return &drand.PrivateRandResponse{Response:obj}, err
 }
 
 func (d *Drand) Setup(c context.Context, in *dkg_proto.DKGPacket) (*dkg_proto.DKGResponse, error) {
@@ -199,6 +251,16 @@ func (d *Drand) Setup(c context.Context, in *dkg_proto.DKGPacket) (*dkg_proto.DK
 	d.dkg.Process(c, in)
 	return &dkg_proto.DKGResponse{}, nil
 }
+
+func (d *Drand) RenewDistKeyGen(c context.Context, in *dkg_proto.RefreshDKG) (*dkg_proto.ResponseDKG, error){
+	if !d.isDKGDone() {
+		return nil, errors.New("drand: no dkg done yet")
+	}
+	d.dkg.Process(c, in.DkgPacket)
+	return &dkg_proto.ResponseDKG{}, nil
+
+}
+
 
 func (d *Drand) NewBeacon(c context.Context, in *drand.BeaconRequest) (*drand.BeaconResponse, error) {
 	if !d.isDKGDone() {

@@ -34,7 +34,7 @@ type Config struct {
 
 // Share represents the private information that a node holds after a successful
 // DKG. This information MUST stay private !
-type Share = dkg.DistKeyShare
+type Share dkg.DistKeyShare
 
 // Handler is the stateful struct that runs a DKG with the peers
 type Handler struct {
@@ -64,7 +64,7 @@ func NewHandler(priv *key.Pair, conf *Config, n Network) (*Handler, error) {
 	points := conf.Group.Points()
 	myIdx, ok := conf.Group.Index(priv.Public)
 	if !ok {
-		return nil, errors.New("dkg: no nublic key corresponding in the given list")
+		return nil, errors.New("dkg: no public key corresponding in the given list")
 	}
 	randomSecret := conf.Suite.Scalar().Pick(random.New())
 	state, err := dkg.NewDistKeyGenerator(conf.Suite, priv.Key, points, t, randomSecret)
@@ -78,6 +78,37 @@ func NewHandler(priv *key.Pair, conf *Config, n Network) (*Handler, error) {
 		net:          n,
 		tmpResponses: make(map[uint32][]*dkg.Response),
 		idx:          myIdx,
+		n:            conf.Group.Len(),
+		shareCh:      make(chan Share, 1),
+		errCh:        make(chan error, 1),
+	}, nil
+}
+
+
+//NewHandler that returns a dkg with secret 0.
+func NewHandlerWithoutSecret(priv *key.Pair, conf *Config, n Network) (*Handler, error) {
+	if err := validateConf(conf); err != nil {
+		return nil, err
+	}
+	t := conf.Group.Threshold
+	points := conf.Group.Points()
+	myIdx, ok := conf.Group.Index(priv.Public)
+	if !ok {
+		return nil, errors.New("dkg: no nublic key corresponding in the given list")
+	}
+	randomSecret := conf.Suite.Scalar().Zero()
+	state, err := dkg.NewDistKeyGenerator(conf.Suite, priv.Key, points, t, randomSecret)
+	if err != nil {
+		return nil, fmt.Errorf("dkg: error using dkg library: %s", err)
+	}
+	return &Handler{
+		conf:         conf,
+		private:      priv,
+		state:        state,
+		net:          n,
+		tmpResponses: make(map[uint32][]*dkg.Response),
+		idx:          myIdx,
+		done:		  false,
 		n:            conf.Group.Len(),
 		shareCh:      make(chan Share, 1),
 		errCh:        make(chan error, 1),
@@ -326,3 +357,4 @@ func validateConf(conf *Config) error {
 	// XXX TODO
 	return nil
 }
+

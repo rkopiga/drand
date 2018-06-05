@@ -357,9 +357,9 @@ func (d *DistKeyGenerator) DistKeyShare() (*DistKeyShare, error) {
 }
 
 //Renew adds the new distributed key share g (with secret 0) to the distributed key share d.
-func (d *DistKeyShare) Renew(suite Suite, g *DistKeyShare) (*DistKeyShare, error) {
+func (d *DistKeyShare) Renew(group kyber.Group, g *DistKeyShare) (*DistKeyShare, error) {
 	//Check G(0) = 0*G.
-	if !g.Public().Equal(suite.Point().Base().Mul(suite.Scalar().Zero(), nil)) {
+	if !g.Public().Equal(group.Point().Base().Mul(group.Scalar().Zero(), nil)) {
 		return nil, errors.New("wrong renewal function")
 	}
 
@@ -368,10 +368,10 @@ func (d *DistKeyShare) Renew(suite Suite, g *DistKeyShare) (*DistKeyShare, error
 		return nil, errors.New("not the same party")
 	}
 
-	newShare := suite.Scalar().Add(d.Share.V, g.Share.V)
+	newShare := group.Scalar().Add(d.Share.V, g.Share.V)
 	newCommits := make([]kyber.Point, len(d.Commits))
 	for i := range newCommits {
-		newCommits[i] = suite.Point().Add(d.Commits[i], g.Commits[i])
+		newCommits[i] = group.Point().Add(d.Commits[i], g.Commits[i])
 	}
 	return &DistKeyShare{
 		Commits: newCommits,
