@@ -112,12 +112,6 @@ func (d *Drand) StartDKG() error {
 	d.dkg.Start()
 	return d.WaitDKG()
 }
-
-func (d *Drand) StartRefresh() error {
-	d.dkg.Start()
-	return d.RenewalDKG()
-}
-
 // WaitDKG waits messages from the DKG protocol started by a leader or some
 // nodes, and then wait until completion.
 func (d *Drand) WaitDKG() error {
@@ -140,6 +134,11 @@ func (d *Drand) WaitDKG() error {
 	return nil
 }
 
+func (d *Drand) StartRefresh() error {
+	d.dkg.Start()
+	return d.RenewalDKG()
+}
+
 func (d *Drand) RenewalDKG() error{
 	var err error
 	distShare, err := d.store.LoadShare()
@@ -151,9 +150,6 @@ func (d *Drand) RenewalDKG() error{
 		renewedShare, err := dkgShare.Renew(key.G2,&dkgShare2)
 		if err != nil{
 			return errors.New("couldn't add shares together")
-		}
-		if renewedShare != &dkgShare2{
-			fmt.Print("IT HAS RENEWED")
 		}
 		obj := *renewedShare
 		s := key.Share(obj)
@@ -252,12 +248,12 @@ func (d *Drand) Setup(c context.Context, in *dkg_proto.DKGPacket) (*dkg_proto.DK
 	return &dkg_proto.DKGResponse{}, nil
 }
 
-func (d *Drand) RenewDistKeyGen(c context.Context, in *dkg_proto.RefreshDKG) (*dkg_proto.ResponseDKG, error){
+func (d *Drand) RenewDistKeyGen(c context.Context, in *dkg_proto.RefreshDKG) (*dkg_proto.RefreshResponse, error){
 	if !d.isDKGDone() {
 		return nil, errors.New("drand: no dkg done yet")
 	}
 	d.dkg.Process(c, in.DkgPacket)
-	return &dkg_proto.ResponseDKG{}, nil
+	return &dkg_proto.RefreshResponse{}, nil
 
 }
 

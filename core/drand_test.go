@@ -71,8 +71,8 @@ func TestDrandDKG(t *testing.T) {
 	}
 
 	r := rdkg[0]
-	erir := r.StartRefresh()
-	require.Nil(t,erir)
+	err = r.StartRefresh()
+	require.Nil(t,err)
 	wgd.Wait()
 	//erir := r.StartRefresh()
 	//require.Nil(t,erir)
