@@ -33,6 +33,7 @@ type Client interface {
 	Private(p Peer, in *drand.PrivateRandRequest) (*drand.PrivateRandResponse, error)
 	NewBeacon(p Peer, in *drand.BeaconRequest) (*drand.BeaconResponse, error)
 	Setup(p Peer, in *dkg.DKGPacket) (*dkg.DKGResponse, error)
+	RenewDistKeyGen(p Peer, in *dkg.RefreshDKG) (*dkg.RefreshResponse, error)
 }
 
 // Listener is the active listener for incoming requests.
@@ -89,6 +90,15 @@ func (g *grpcClient) Setup(p Peer, in *dkg.DKGPacket) (*dkg.DKGResponse, error) 
 	}
 	client := dkg.NewDkgClient(c)
 	return client.Setup(context.Background(), in, grpc.FailFast(false))
+}
+
+func (g *grpcClient) RenewDistKeyGen(p Peer, in *dkg.RefreshDKG) (*dkg.RefreshResponse, error){
+	c, err := g.conn(p)
+	if err != nil{
+		return nil, err
+	}
+	client := dkg.NewDkgClient(c)
+	return client.RenewDistKeyGen(context.Background(),in,grpc.FailFast(false))
 }
 
 func (g *grpcClient) NewBeacon(p Peer, in *drand.BeaconRequest) (*drand.BeaconResponse, error) {

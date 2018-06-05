@@ -131,10 +131,10 @@ func (h *Handler) Process(c context.Context, packet *dkg_proto.DKGPacket) {
 // Start sends the first message to run the protocol
 func (h *Handler) Start() {
 	h.sentDeals = true
-	if err := h.sendDeals(); err != nil {
-		h.errCh <- err
-		h.done = true
-	}
+		if err := h.sendDeals(); err != nil {
+			h.errCh <- err
+			h.done = true
+		}
 }
 
 // WaitShare returns a channel over which the share will be sent over when
@@ -308,12 +308,13 @@ func (h *Handler) sendDeals() error {
 		}
 
 		slog.Debugf("dkg: %s sending deal to %s", h.addr(), id.Address())
-		if err := h.net.Send(id, packet); err != nil {
-			slog.Printf("dkg: failed to send deal to %s: %s", id.Address(), err)
-		} else {
-			good++
+			if err := h.net.Send(id, packet); err != nil {
+				slog.Printf("dkg: failed to send deal to %s: %s", id.Address(), err)
+			} else {
+				good++
+			}
+
 		}
-	}
 	if good < h.conf.Group.Threshold {
 		return fmt.Errorf("dkg: could only send deals to %d / %d (threshold %d)", good, h.n, h.conf.Group.Threshold)
 	}
@@ -351,6 +352,7 @@ func (h *Handler) raddr(i uint32) string {
 // XXX Not really needed, should use the net/protobuf interface instead
 type Network interface {
 	Send(net.Peer, *dkg_proto.DKGPacket) error
+	Refresh(net.Peer, *dkg_proto.RefreshDKG) error
 }
 
 func validateConf(conf *Config) error {

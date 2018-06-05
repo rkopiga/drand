@@ -109,7 +109,7 @@ func LoadDrand(s key.Store, c *Config) (*Drand, error) {
 // protocol to every other node in the group. It returns nil if the DKG protocol
 // finished successfully or an error otherwise.
 func (d *Drand) StartDKG() error {
-	d.dkg.Start()
+	d.dkg.Start(false)
 	return d.WaitDKG()
 }
 // WaitDKG waits messages from the DKG protocol started by a leader or some
@@ -135,7 +135,7 @@ func (d *Drand) WaitDKG() error {
 }
 
 func (d *Drand) StartRefresh() error {
-	d.dkg.Start()
+	d.dkg.Start(true)
 	return d.RenewalDKG()
 }
 
@@ -178,7 +178,7 @@ func (d *Drand) RefreshDKG() (*Drand,error){
 		Group:   d.group,
 		Timeout: d.opts.dkgTimeout,
 	}
-	d.dkg , _ = dkg.NewHandlerWithoutSecret(d.priv,dkgConf,d.dkgNetwork())
+	d.dkg , _ = dkg.NewHandlerWithoutSecret(d.priv,dkgConf,d.refreshNetwork())
 	return d, nil
 }
 
@@ -308,14 +308,32 @@ func (d *Drand) sendDkgPacket(p net.Peer, pack *dkg_proto.DKGPacket) error {
 	return err
 }
 
+func (d *Drand) renewDKGPacket(p net.Peer, pack *dkg_proto.RefreshDKG) error{
+	_, err := d.gateway.Client.RenewDistKeyGen(p,pack)
+	return err
+}
+
 func (d *Drand) dkgNetwork() *dkgNetwork {
 	return &dkgNetwork{d.sendDkgPacket}
+}
+
+func (d Drand) refreshNetwork() *refreshNetwork{
+	return &refreshNetwork{ d.renewDKGPacket}
 }
 
 type dkgNetwork struct {
 	send func(net.Peer, *dkg_proto.DKGPacket) error
 }
 
+type refreshNetwork struct {
+	send func(net.Peer, *dkg_proto.RefreshDKG) error
+}
+
 func (d *dkgNetwork) Send(p net.Peer, pack *dkg_proto.DKGPacket) error {
 	return d.send(p, pack)
 }
+
+func (d *refreshNetwork) Refresh(p net.Peer, pack *dkg_proto.RefreshDKG) error {
+	return d.send(p, pack)
+}
+
